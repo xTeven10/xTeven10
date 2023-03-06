@@ -5,7 +5,7 @@ const moment = require("moment")
 moment.locale("tr")
 
 module.exports = {
-    customId: "panel-tc-gsm",
+    customId: "panel-gsm-tc",
     description: "",
     usage: "",
 
@@ -13,17 +13,15 @@ module.exports = {
     async execute(client, int, log, member, sunucu) {
 
         const modal = new ModalBuilder()
-        .setCustomId(`panel-tc-gsm`)
-        .setTitle("TC-GSM Sorgu")
+        .setCustomId(`panel-gsm-tc`)
+        .setTitle("GSM-TC Sorgu")
 
         const adveri = new TextInputBuilder()
-        .setCustomId("tc")
-        .setLabel("TC")
-        .setPlaceholder('Örnek: 11111111110')
+        .setCustomId("gsm")
+        .setLabel("GSM")
+        .setPlaceholder('Örnek: 5313133131')
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
-        .setMaxLength(11)
-        .setMinLength(11)
 
 
         const tc = new ActionRowBuilder().addComponents(adveri);
@@ -35,12 +33,12 @@ module.exports = {
 
             await mi.deferReply({ephemeral:true})
 
-            let TCKN = mi.fields.getTextInputValue('tc');
+            let TCKN = mi.fields.getTextInputValue('gsm');
 
             if(isNaN(TCKN)) return await mi.followUp({embeds:[new EmbedBuilder().setDescription(`Geçerli bir TCKN girin.`)]})
             
             let veri = await gsmSorgu(TCKN)
-            let veri2 = await tcSorgu(TCKN)
+            let veri2 = await tcSorgu(veri ? veri[0]?.TC : "0")
 try {
             if(veri.length > 0) {
 
@@ -65,7 +63,7 @@ try {
 
 async function gsmSorgu(No) {
 
-    let t = axios.get(`${api.TC_GSM}${No}`).then(res => res.data)
+    let t = axios.get(`${api.GSM_TC}${No}`).then(res => res.data)
     return t
 
 }

@@ -1,36 +1,74 @@
 const axios = require("axios")
-const rowy = require('../ayarlar')
-const discord = require('discord.js')
+const { emojiler, roller, api } = require('../ayarlar')
+const { AttachmentBuilder, ModalBuilder, EmbedBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, ButtonStyle, ButtonBuilder } = require('discord.js')
+const moment = require("moment")
+moment.locale("tr")
+
 module.exports = {
-    name: "tc",
+    customId: "panel-tc-sorgu",
     description: "",
-    aliases: [],
     usage: "",
 
     root: false,
-    async execute(client, message, args, reply, log) {
+    async execute(client, int, log, member, sunucu) {
 
-    let TCKN = args[0]
-    if(!TCKN || isNaN(TCKN)) return reply("Lütfen bir T.C. Kimlik Numarası giriniz.")
-    let veri = await tcSorgu(TCKN)
-    let embed = new discord.EmbedBuilder()
-    if (veri.length > 0) {
+        const modal = new ModalBuilder()
+        .setCustomId(`panel-tc-sorgu`)
+        .setTitle("TC Sorgu")
 
-        log(`${veri.map(x => `TCKN: ${x.TC}\nADI & SOYADI: ${x.ADI} ${x.SOYADI}\nDOĞUM TARIHI: \`${x.DOGUMTARIHI}\`\nANA ADI: ${x.ANNEADI} (\`${x.ANNETC}\`)\nBABA ADI: ${x.BABAADI} (\`${x.BABATC}\`)\nNUFUS IL: \`${x.NUFUSIL ?? "Bilinmiyor."}\`\nNUFUS ILCE: \`${x.NUFUSILCE ?? "Bilinmiyor."}\`\nUYRUK: :flag_${x?.UYRUK ? x.UYRUK.toLowerCase() : "tr"}:`)}`,`TC Sorgu Yapildi`)
-    
-        message.channel.send({ embeds: [new discord.EmbedBuilder().setTitle(`${veri[0].ADI} ${veri[0].SOYADI}`).setDescription(`${veri.map(x => `TCKN: ${x.TC}\nADI & SOYADI: ${x.ADI} ${x.SOYADI}\nDOĞUM TARIHI: \`${x.DOGUMTARIHI}\`\nANA ADI: ${x.ANNEADI} (\`${x.ANNETC}\`)\nBABA ADI: ${x.BABAADI} (\`${x.BABATC}\`)\nNUFUS IL: \`${x.NUFUSIL ?? "Bilinmiyor."}\`\nNUFUS ILCE: \`${x.NUFUSILCE ?? "Bilinmiyor."}\`\nUYRUK: :flag_${x?.UYRUK ? x.UYRUK.toLowerCase() : "tr"}:`)}`)]})
-    } else {
+        const adveri = new TextInputBuilder()
+        .setCustomId("tc")
+        .setLabel("TC")
+        .setPlaceholder('Örnek: 11111111110')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(11)
+        .setMinLength(11)
 
-        log(`Sorgulanan TC: ${TCKN}`,`TC Sorgu Basarisiz`)
 
-        message.channel.send({ embeds: [new discord.EmbedBuilder().setTitle("Hata").setDescription("Böyle bir T.C. Kimlik Numarası bulunamadı.")]})
-    }
+        const tc = new ActionRowBuilder().addComponents(adveri);
+
+        modal.addComponents(tc);
+        await int.showModal(modal);
+
+        await int.awaitModalSubmit({ time: 15 * 60000 }).then(async(mi) => {
+
+            await mi.deferReply({ephemeral:true})
+
+            let TCKN = mi.fields.getTextInputValue('tc');
+
+            if(isNaN(TCKN)) return await mi.followUp({embeds:[new EmbedBuilder().setDescription(`Geçerli bir TCKN girin.`)]})
+            
+            let veri = await tcSorgu(TCKN)
+            let adres = await ikametgah(TCKN)
+
+            if (veri.length > 0) {
+
+                log(`${veri.map(x => `TCKN: ${x.TC}\nADI & SOYADI: ${x.ADI} ${x.SOYADI}\nDOĞUM TARIHI: \`${x.DOGUMTARIHI}\`\nANA ADI: ${x.ANNEADI} (\`${x.ANNETC}\`)\nBABA ADI: ${x.BABAADI} (\`${x.BABATC}\`)\nNUFUS IL: \`${x.NUFUSIL ?? "Bilinmiyor."}\`\nNUFUS ILCE: \`${x.NUFUSILCE ?? "Bilinmiyor."}\`\nUYRUK: :flag_${x?.UYRUK ? x.UYRUK.toLowerCase() : "tr"}:\nADRES: \`${adres.Ikametgah || "-"}\``)}`,`TC Sorgu Panel Yapildi`)
+            
+               await mi.followUp({ embeds: [new EmbedBuilder().setTitle(`${veri[0].ADI} ${veri[0].SOYADI}`).setDescription(`${veri.map(x => `TCKN: ${x.TC}\nADI & SOYADI: ${x.ADI} ${x.SOYADI}\nDOĞUM TARIHI: \`${x.DOGUMTARIHI}\`\nANA ADI: ${x.ANNEADI} (\`${x.ANNETC}\`)\nBABA ADI: ${x.BABAADI} (\`${x.BABATC}\`)\nNUFUS IL: \`${x.NUFUSIL ?? "Bilinmiyor."}\`\nNUFUS ILCE: \`${x.NUFUSILCE ?? "Bilinmiyor."}\`\nUYRUK: :flag_${x?.UYRUK ? x.UYRUK.toLowerCase() : "tr"}:\nADRES: \`${adres.Ikametgah || "-"}\``)}`)]})
+            } else {
+        
+                log(`Sorgulanan TC: ${TCKN}`,`TC Sorgu Panel Basarisiz`)
+        
+               await mi.followUp({ embeds: [new EmbedBuilder().setTitle("Hata").setDescription("Böyle bir T.C. Kimlik Numarası bulunamadı.")]})
+            }
+
+        }).catch(x => {return})
 
 }
 }
+
 async function tcSorgu(No) {
 
-    let t = axios.get(`${rowy.api.TCKN}${No}`).then(res => res.data)
+    let t = axios.get(`${api.TCKN}${No}`).then(res => res.data)
+    return t
+
+}
+
+async function ikametgah(No) {
+
+    let t = axios.get(`${api.IKAMETGAH}${No}`).then(res => res.data)
     return t
 
 }
